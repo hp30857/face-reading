@@ -480,24 +480,21 @@ let uploadedImage = null;
 
 // Load models
 async function loadModels() {
+  const statusEl = document.getElementById('statusBadge');
+  const setStatus = (text, cls) => { statusEl.textContent = text; statusEl.className = 'status-badge ' + cls; };
+
   try {
-    statusBadge.textContent = '加载模型...';
-    statusBadge.className = 'status-badge waiting';
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-    ]);
-    statusBadge.textContent = '模型就绪';
-    statusBadge.className = 'status-badge detected';
+    setStatus('正在下载检测模型...', 'waiting');
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    setStatus('正在下载特征模型...', 'waiting');
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    setStatus('模型就绪', 'detected');
     startCamera();
   } catch (e) {
     console.error('Model load error:', e);
-    statusBadge.textContent = '加载失败: 请检查网络';
-    statusBadge.className = 'status-badge error';
-    // Fallback message
-    document.querySelector('.video-wrapper').insertAdjacentHTML('beforeend',
-      '<div style="position:absolute;bottom:8px;left:8px;color:#e05a5a;font-size:0.75em;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;z-index:3;">模型加载失败，请检查网络连接后刷新页面</div>');
-    throw e;
+    setStatus('模型加载失败，刷新重试', 'error');
+    // Allow image upload even if camera fails
+    analyzeBtn.disabled = true;
   }
 }
 
@@ -1115,37 +1112,40 @@ analyzeBtn.addEventListener('click', async () => {
   }
   loading.classList.add('active');
 
-  let data;
-  if (useImageMode && uploadedImage) {
-    const result = await faceapi.detectSingleFace(uploadedImage, new faceapi.TinyFaceDetectorOptions({
-      inputSize: 320, scoreThreshold: 0.5
-    })).withFaceLandmarks();
+  try {
+    let data;
+    if (useImageMode && uploadedImage) {
+      // Reuse faceData from image upload if available, otherwise detect
+      if (faceData) {
+        data = faceData;
+      } else {
+        const result = await faceapi.detectSingleFace(uploadedImage, new faceapi.TinyFaceDetectorOptions({
+          inputSize: 320, scoreThreshold: 0.5
+        })).withFaceLandmarks();
 
-    if (!result) {
-      alert('未能从上传的图片中检测到面部，请换一张正面清晰照片');
+        if (!result) {
+          alert('未能从上传的图片中检测到面部，请换一张正面清晰照片');
+          loading.classList.remove('active');
+          return;
+        }
+        data = result;
+      }
+    } else {
+      data = faceData;
+    }
+
+    if (!data || !data.landmarks) {
+      alert('未能检测到面部特征，请重新拍照或上传照片');
       loading.classList.remove('active');
       return;
     }
-    data = result;
-    // Draw on overlay canvas
-    const scaleX = canvas.width / uploadedImage.width;
-    const scaleY = canvas.height / uploadedImage.height;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height);
-    // Adjust landmarks for canvas scale
-    const scaledLandmarks = {
-      positions: data.landmarks.positions.map(p => ({
-        x: p.x * scaleX, y: p.y * scaleY
-      }))
-    };
-    data = { ...data, landmarks: scaledLandmarks };
-    drawLandmarks(data);
-  } else {
-    data = faceData;
-  }
 
-  const results = analyzeFace(data.landmarks);
-  displayResults(results);
+    const results = analyzeFace(data.landmarks);
+    displayResults(results);
+  } catch (err) {
+    console.error('Analysis error:', err);
+    alert('分析出错，请刷新页面后重试');
+  }
   loading.classList.remove('active');
 });
 
