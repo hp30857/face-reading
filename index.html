@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面相分析 - AI Face Reading</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'STSong', 'SimSun', 'KaiTi', 'Microsoft YaHei', serif;
+  background: linear-gradient(135deg, #1a0a0a 0%, #2d1010 30%, #1a0a0a 60%, #0a0a0a 100%);
+  min-height: 100vh;
+  color: #d4af37;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header {
+  text-align: center;
+  padding: 24px 16px 8px;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(212,175,55,0.15) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(212,175,55,0.2);
+}
+.header h1 {
+  font-size: 2.4em;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 20px rgba(212,175,55,0.5);
+  margin-bottom: 4px;
+}
+.header .subtitle {
+  font-size: 0.9em;
+  color: #a08040;
+  letter-spacing: 0.1em;
+}
+
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 24px;
+  max-width: 1100px;
+  width: 100%;
+  justify-content: center;
+}
+
+.video-section {
+  flex: 1 1 500px;
+  max-width: 640px;
+  position: relative;
+}
+
+.video-wrapper {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 3px solid rgba(212,175,55,0.4);
+  box-shadow: 0 0 30px rgba(212,175,55,0.15), 0 8px 32px rgba(0,0,0,0.5);
+  background: #111;
+}
+
+video, canvas {
+  display: block;
+  width: 100%;
+  border-radius: 13px;
+}
+canvas {
+  position: absolute;
+  top: 0; left: 0;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: 2px solid #d4af37;
+  background: linear-gradient(180deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%);
+  color: #d4af37;
+  font-size: 1em;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+  transition: all 0.3s;
+}
+.btn:hover {
+  background: linear-gradient(180deg, rgba(212,175,55,0.3) 0%, rgba(212,175,55,0.1) 100%);
+  box-shadow: 0 0 16px rgba(212,175,55,0.3);
+}
+.btn:active { transform: scale(0.96); }
+.btn.primary {
+  background: linear-gradient(180deg, #d4af37 0%, #8b6914 100%);
+  color: #1a0a0a;
+  border-color: #d4af37;
+  font-weight: bold;
+}
+.btn.primary:hover {
+  box-shadow: 0 0 24px rgba(212,175,55,0.5);
+}
+
+.file-label {
+  padding: 10px 24px;
+  border: 2px dashed #d4af37;
+  background: transparent;
+  color: #d4af37;
+  font-size: 1em;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+  transition: all 0.3s;
+}
+.file-label:hover {
+  background: rgba(212,175,55,0.1);
+}
+input[type="file"] { display: none; }
+
+.result-section {
+  flex: 1 1 400px;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.result-section::-webkit-scrollbar { width: 4px; }
+.result-section::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 4px; }
+
+.result-card {
+  background: linear-gradient(180deg, rgba(212,175,55,0.08) 0%, rgba(212,175,55,0.02) 100%);
+  border: 2px solid rgba(212,175,55,0.3);
+  border-radius: 16px;
+  padding: 24px;
+  min-height: 200px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.result-card h2 {
+  text-align: center;
+  font-size: 1.4em;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(212,175,55,0.25);
+  letter-spacing: 0.08em;
+}
+
+.result-placeholder {
+  text-align: center;
+  color: #6a5530;
+  padding: 40px 12px;
+  font-size: 0.95em;
+  line-height: 1.8;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(212,175,55,0.2);
+  padding-bottom: 8px;
+}
+.tab-btn {
+  padding: 5px 10px;
+  font-size: 0.78em;
+  border: 1px solid rgba(212,175,55,0.3);
+  background: transparent;
+  color: #a08040;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { background: rgba(212,175,55,0.1); }
+.tab-btn.active {
+  background: rgba(212,175,55,0.2);
+  color: #ffd700;
+  border-color: #d4af37;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.feature-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(212,175,55,0.12);
+}
+.feature-item:last-child { border-bottom: none; }
+.feature-name {
+  font-size: 0.85em;
+  color: #a08040;
+  margin-bottom: 3px;
+}
+.feature-reading {
+  font-size: 1em;
+  color: #e0c060;
+  line-height: 1.5;
+}
+.feature-score {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.8em;
+}
+.feature-score.good { color: #5ae05a; }
+.feature-score.neutral { color: #d4af37; }
+
+/* Extended cards */
+.ext-card {
+  background: rgba(212,175,55,0.04);
+  border: 1px solid rgba(212,175,55,0.15);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.ext-card h3 {
+  font-size: 0.95em;
+  color: #d4af37;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+.ext-card p {
+  font-size: 0.9em;
+  color: #c0a050;
+  line-height: 1.65;
+}
+.ext-card .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tag {
+  padding: 3px 10px;
+  font-size: 0.78em;
+  border-radius: 12px;
+  background: rgba(212,175,55,0.12);
+  color: #d4af37;
+  border: 1px solid rgba(212,175,55,0.25);
+}
+.tag.good { background: rgba(90,224,90,0.1); border-color: rgba(90,224,90,0.3); color: #5ae05a; }
+
+.meter-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(212,175,55,0.1);
+  margin-top: 6px;
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #8b6914, #d4af37, #ffd700);
+  transition: width 0.6s ease;
+}
+
+.overall-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid rgba(212,175,55,0.3);
+  text-align: center;
+}
+.overall-label {
+  font-size: 0.9em;
+  color: #a08040;
+}
+.overall-score {
+  font-size: 2.2em;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 0 16px rgba(255,215,0,0.5);
+}
+.overall-text {
+  margin-top: 8px;
+  font-size: 1.05em;
+  color: #e0c060;
+  line-height: 1.6;
+}
+
+.loading {
+  display: none;
+  text-align: center;
+  padding: 20px;
+  color: #d4af37;
+}
+.loading.active { display: block; }
+.spinner {
+  display: inline-block;
+  width: 32px; height: 32px;
+  border: 3px solid rgba(212,175,55,0.2);
+  border-top-color: #d4af37;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-badge {
+  position: absolute;
+  top: 12px; right: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  background: rgba(0,0,0,0.6);
+  z-index: 2;
+}
+.status-badge.detected { color: #5ae05a; border: 1px solid #5ae05a; }
+.status-badge.waiting { color: #d4af37; border: 1px solid #d4af37; }
+.status-badge.error { color: #e05a5a; border: 1px solid #e05a5a; }
+
+.footer {
+  text-align: center;
+  padding: 16px;
+  color: #4a3020;
+  font-size: 0.8em;
+  margin-top: auto;
+}
+
+/* === Mobile Responsive === */
+@media (max-width: 768px) {
+  .header h1 { font-size: 1.6em; }
+  .header .subtitle { font-size: 0.75em; }
+
+  .container {
+    flex-direction: column;
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .video-section {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .video-wrapper {
+    border-radius: 12px;
+    border-width: 2px;
+  }
+
+  .controls {
+    gap: 8px;
+  }
+  .btn, .file-label {
+    padding: 12px 18px;
+    font-size: 0.9em;
+    border-radius: 8px;
+  }
+
+  .result-section {
+    flex: 1 1 auto;
+    max-width: 100%;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .result-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .result-card h2 { font-size: 1.2em; }
+
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 3px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex-shrink: 0;
+    font-size: 0.75em;
+    padding: 6px 10px;
+  }
+
+  .ext-card { padding: 12px; }
+  .ext-card h3 { font-size: 0.9em; }
+  .ext-card p { font-size: 0.85em; }
+
+  .overall-score { font-size: 1.8em; }
+  .overall-text { font-size: 0.9em; }
+
+  .status-badge { font-size: 0.7em; padding: 3px 10px; }
+
+  .footer { font-size: 0.7em; padding: 12px; }
+}
+
+/* Small phones */
+@media (max-width: 400px) {
+  .header h1 { font-size: 1.3em; }
+  .btn, .file-label { padding: 10px 14px; font-size: 0.82em; }
+  .result-card { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>面 相 分 析</h1>
+  <p class="subtitle">AI Face Reading · 传统文化与人工智能的结合</p>
+</div>
+
+<div class="container">
+  <div class="video-section">
+    <div class="video-wrapper">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div class="status-badge waiting" id="statusBadge">等待检测</div>
+    </div>
+    <div class="controls">
+      <button class="btn primary" id="analyzeBtn" disabled>🔮 开始看相</button>
+      <button class="btn" id="cameraBtn">📷 切换摄像头</button>
+      <label class="file-label" for="imageUpload">📁 上传照片</label>
+      <input type="file" id="imageUpload" accept="image/*" capture="environment">
+    </div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p style="margin-top:8px;">正在分析面相，请稍候...</p>
+    </div>
+  </div>
+
+  <div class="result-section">
+    <div class="result-card" id="resultCard">
+      <h2>🔮 面相解读</h2>
+      <div class="result-placeholder" id="resultPlaceholder">
+        请将面部对准摄像头<br>或上传一张正面照片<br>然后点击「开始看相」
+      </div>
+      <div id="resultContent" style="display:none;">
+        <div class="tabs" id="tabs">
+          <button class="tab-btn active" data-tab="tab-features">五官面相</button>
+          <button class="tab-btn" data-tab="tab-personality">性格分析</button>
+          <button class="tab-btn" data-tab="tab-career">事业职业</button>
+          <button class="tab-btn" data-tab="tab-wealth">财运走势</button>
+          <button class="tab-btn" data-tab="tab-love">感情姻缘</button>
+          <button class="tab-btn" data-tab="tab-health">健康运势</button>
+          <button class="tab-btn" data-tab="tab-summary">综合总评</button>
+        </div>
+        <div class="tab-panel active" id="tab-features"></div>
+        <div class="tab-panel" id="tab-personality"></div>
+        <div class="tab-panel" id="tab-career"></div>
+        <div class="tab-panel" id="tab-wealth"></div>
+        <div class="tab-panel" id="tab-love"></div>
+        <div class="tab-panel" id="tab-health"></div>
+        <div class="tab-panel" id="tab-summary"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  本程序仅供娱乐参考，切勿当真。面相之说，信则有，不信则无。<br>
+  <span style="color:#5a4020;">📱 手机端：双击 run.bat → 手机浏览器访问终端显示的地址（同 WiFi 下）</span>
+</div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const statusBadge = document.getElementById('statusBadge');
+const loading = document.getElementById('loading');
+const resultPlaceholder = document.getElementById('resultPlaceholder');
+const resultContent = document.getElementById('resultContent');
+const imageUpload = document.getElementById('imageUpload');
+
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+let currentStream = null;
+let faceData = null;
+let detectionLoop = null;
+let useImageMode = false;
+let uploadedImage = null;
+
+// Load models
+async function loadModels() {
+  try {
+    statusBadge.textContent = '加载模型...';
+    statusBadge.className = 'status-badge waiting';
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+    ]);
+    statusBadge.textContent = '模型就绪';
+    statusBadge.className = 'status-badge detected';
+    startCamera();
+  } catch (e) {
+    console.error('Model load error:', e);
+    statusBadge.textContent = '加载失败: 请检查网络';
+    statusBadge.className = 'status-badge error';
+    // Fallback message
+    document.querySelector('.video-wrapper').insertAdjacentHTML('beforeend',
+      '<div style="position:absolute;bottom:8px;left:8px;color:#e05a5a;font-size:0.75em;background:rgba(0,0,0,0.7);padding:4px 8px;border-radius:4px;z-index:3;">模型加载失败，请检查网络连接后刷新页面</div>');
+    throw e;
+  }
+}
+
+// Start webcam
+async function startCamera() {
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+  }
+  try {
+    currentStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    });
+    video.srcObject = currentStream;
+    video.onloadedmetadata = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      analyzeBtn.disabled = false;
+      useImageMode = false;
+      uploadedImage = null;
+      startDetectionLoop();
+    };
+  } catch (e) {
+    console.error('Camera error:', e);
+    statusBadge.textContent = '摄像头不可用';
+    statusBadge.className = 'status-badge error';
+    analyzeBtn.disabled = true;
+    const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isSecure) {
+      document.querySelector('.video-wrapper').insertAdjacentHTML('beforeend',
+        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);z-index:3;text-align:center;padding:20px;flex-direction:column;">' +
+        '<p style="color:#d4af37;margin-bottom:8px;">📱 手机端需通过服务器访问</p>' +
+        '<p style="color:#a08040;font-size:0.8em;">运行 <code style="background:rgba(212,175,55,0.2);padding:2px 6px;border-radius:3px;">run.bat</code></p>' +
+        '<p style="color:#a08040;font-size:0.8em;">然后用手机浏览器打开显示的地址</p>' +
+        '<p style="color:#6a5530;font-size:0.75em;margin-top:6px;">或使用「上传照片」功能</p></div>');
+    }
+  }
+}
+
+// Continuous face detection
+function startDetectionLoop() {
+  if (detectionLoop) cancelAnimationFrame(detectionLoop);
+
+  async function detect() {
+    if (useImageMode) {
+      detectionLoop = requestAnimationFrame(detect);
+      return;
+    }
+    if (video.readyState === 4) {
+      const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
+        inputSize: 320, scoreThreshold: 0.5
+      })).withFaceLandmarks();
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (result) {
+        faceData = result;
+        statusBadge.textContent = '已检测到面部';
+        statusBadge.className = 'status-badge detected';
+        drawLandmarks(result);
+      } else {
+        faceData = null;
+        statusBadge.textContent = '未检测到面部';
+        statusBadge.className = 'status-badge waiting';
+      }
+    }
+    detectionLoop = requestAnimationFrame(detect);
+  }
+  detect();
+}
+
+function drawLandmarks(result) {
+  const lm = result.landmarks.positions;
+  // Draw key points
+  ctx.fillStyle = 'rgba(212,175,55,0.6)';
+  lm.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Draw face oval
+  const jawIndices = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+  ctx.strokeStyle = 'rgba(212,175,55,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(lm[0].x, lm[0].y);
+  jawIndices.forEach(i => ctx.lineTo(lm[i].x, lm[i].y));
+  ctx.stroke();
+
+  // Draw eye contours
+  ctx.strokeStyle = 'rgba(100,200,255,0.5)';
+  [[36,37,38,39,40,41],[42,43,44,45,46,47]].forEach(eye => {
+    ctx.beginPath();
+    ctx.moveTo(lm[eye[0]].x, lm[eye[0]].y);
+    eye.forEach(i => ctx.lineTo(lm[i].x, lm[i].y));
+    ctx.closePath();
+    ctx.stroke();
+  });
+
+  // Draw eyebrow contours
+  ctx.strokeStyle = 'rgba(200,160,80,0.5)';
+  [[17,18,19,20,21],[22,23,24,25,26]].forEach(brow => {
+    ctx.beginPath();
+    ctx.moveTo(lm[brow[0]].x, lm[brow[0]].y);
+    brow.forEach(i => ctx.lineTo(lm[i].x, lm[i].y));
+    ctx.stroke();
+  });
+
+  // Nose bridge
+  ctx.strokeStyle = 'rgba(255,180,100,0.4)';
+  ctx.beginPath();
+  [27,28,29,30].forEach(i => ctx.lineTo(lm[i].x, lm[i].y));
+  ctx.stroke();
+}
+
+// === Analysis Functions ===
+function dist(p1, p2) {
+  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+}
+
+function analyzeFace(landmarks) {
+  const lm = landmarks.positions;
+  const results = {};
+
+  // --- Face Shape (脸型) ---
+  const faceWidth = dist(lm[2], lm[14]);  // cheekbone width
+  const jawWidth = dist(lm[4], lm[12]);
+  const foreheadWidth = dist(lm[17], lm[26]); // temple width
+  const faceHeight = dist(lm[8], lm[27]); // chin to nose bridge (lower face)
+  const totalFaceHeight = faceHeight + dist(lm[27], Math.max(lm[19].y, lm[24].y) < lm[27].y ? {x: lm[27].x, y: Math.min(lm[19].y, lm[24].y)} : lm[27]);
+
+  const widthHeightRatio = faceWidth / faceHeight;
+  const jawToCheekRatio = jawWidth / faceWidth;
+
+  if (widthHeightRatio > 0.9) {
+    results.faceShape = { name: '圆脸', reading: '圆脸之人性格开朗，为人随和，人缘极佳。面如满月，主富贵之相。待人真诚，心胸开阔，无论事业还是家庭都能获得圆满。', score: 85 };
+  } else if (jawToCheekRatio < 0.75 && foreheadWidth > jawWidth * 1.1) {
+    results.faceShape = { name: '瓜子脸', reading: '瓜子脸是传统的东方美人脸型。主聪明伶俐，心思细腻，审美能力出众。在艺术和创意领域常有出色的表现，异性缘佳。', score: 88 };
+  } else if (widthHeightRatio > 0.82 && jawToCheekRatio > 0.85) {
+    results.faceShape = { name: '方脸', reading: '方脸之人意志坚定，做事踏实可靠。下颌有力，主晚年运佳。为人正直，不畏艰难，是成大事之相。适合从事管理、军警、工程技术等领域。', score: 82 };
+  } else {
+    results.faceShape = { name: '鹅蛋脸', reading: '鹅蛋脸是最为标准和谐的脸型，五行平衡。为人温和有礼，处世圆融，一生运势平稳向上。无论男女，皆主福寿绵长。', score: 90 };
+  }
+
+  // --- Forehead / 天庭 ---
+  const browTop = Math.min(...lm.slice(17, 27).map(p => p.y));
+  const faceTop = Math.min(...lm.map(p => p.y));
+  const foreheadH = browTop - faceTop + 10; // slight padding
+  const fhRatio = foreheadH / faceHeight;
+
+  if (fhRatio > 0.38) {
+    results.forehead = { name: '天庭饱满', reading: '天庭饱满，地阁方圆，是大富大贵之相。早年运势亨通，聪明过人，学习能力强，易得长辈提携。思维开阔，有领导才能。', score: 92 };
+  } else if (fhRatio > 0.30) {
+    results.forehead = { name: '天庭适中', reading: '天庭宽度适中，主早年运势平稳。虽无大起大落，但一步一个脚印，踏实前进。思维清晰务实，中晚年运势渐入佳境。', score: 78 };
+  } else {
+    results.forehead = { name: '天庭偏窄', reading: '天庭略窄，早年可能经历一些波折。但此相之人往往更具韧性，后劲十足。建议多读书开阔眼界，以弥补先天之不足。', score: 62 };
+  }
+
+  // --- Eyebrows / 眉毛 ---
+  const leftBrowLen = dist(lm[17], lm[21]);
+  const rightBrowLen = dist(lm[22], lm[26]);
+  const avgBrowLen = (leftBrowLen + rightBrowLen) / 2;
+  const browDistance = dist(lm[21], lm[22]); // inner brow distance
+  const browThickness = (dist(lm[17], lm[17]) + dist(lm[19], lm[19])) / 2; // approximate
+
+  // Actual brow thickness
+  const leftBrowThick = (dist(lm[17], lm[17]) /*placeholder*/ > 0) ?
+    Math.abs(lm[19].y - lm[17].y) : 8;
+  // Better thickness calc
+  const lbThick = Math.abs((lm[17].y + lm[18].y + lm[19].y + lm[20].y + lm[21].y)/5 -
+                           (lm[17].y + lm[18].y + lm[19].y + lm[20].y + lm[21].y)/5);
+  const actualBrowThick = Math.max(3, Math.abs(lm[19].y - Math.max(lm[37].y, lm[38].y, lm[40].y, lm[41].y)));
+
+  if (avgBrowLen > faceWidth * 0.55 && browDistance > avgBrowLen * 0.35) {
+    results.eyebrows = { name: '浓眉舒展', reading: '眉毛浓密且舒展，为人重情重义，性格豪爽。眉间距宽者心胸开阔，不斤斤计较。朋友众多，人际关系和谐，适合从事需要广泛社交的工作。', score: 86 };
+  } else if (browDistance < avgBrowLen * 0.2) {
+    results.eyebrows = { name: '眉心较近', reading: '两眉间距较近，主心思细腻敏感，但也容易多思多虑。此类人往往专注力极强，做事认真，在学术和研究领域有独特优势。', score: 68 };
+  } else {
+    results.eyebrows = { name: '眉形自然', reading: '眉形自然流畅，主性格平和，处事得体。人际关系和谐，做事有条不紊。一生少有大波折，属于稳步上升之命格。', score: 80 };
+  }
+
+  // --- Eyes / 眼睛 ---
+  const leftEyeW = dist(lm[36], lm[39]);
+  const rightEyeW = dist(lm[42], lm[45]);
+  const avgEyeW = (leftEyeW + rightEyeW) / 2;
+  const leftEyeH = (dist(lm[37], lm[41]) + dist(lm[38], lm[40])) / 2;
+  const rightEyeH = (dist(lm[43], lm[47]) + dist(lm[44], lm[46])) / 2;
+  const avgEyeH = (leftEyeH + rightEyeH) / 2;
+  const eyeRatio = avgEyeH / avgEyeW;
+  const eyeDistance = dist(lm[39], lm[42]); // inner canthus distance
+  const eyeDistRatio = eyeDistance / faceWidth;
+
+  if (eyeRatio > 0.35) {
+    results.eyes = { name: '大而有神', reading: '眼睛大而有神，主心地善良，富有同情心。眼神是心灵的窗户，目大者眼界开阔，对新事物充满好奇。在艺术、文学领域往往有非凡的天赋。', score: 88 };
+  } else if (eyeRatio < 0.22) {
+    results.eyes = { name: '细长眼眸', reading: '眼型细长，主性格沉稳内敛，善于思考。此类人洞察力强，看问题深入透彻。做事谨慎，不轻易表露情感，是值得信赖的伙伴。', score: 75 };
+  } else {
+    results.eyes = { name: '标准眼型', reading: '眼型端正，大小适中。主性格平衡，既不过于感性也不过于理性。人际交往中得体大方，处世有方，一生福运绵长。', score: 82 };
+  }
+
+  if (eyeDistRatio > 0.32) {
+    results.eyes.reading += ' 眼距较宽，视野广阔，心胸坦荡。';
+    results.eyes.score += 2;
+  } else if (eyeDistRatio < 0.26) {
+    results.eyes.reading += ' 眼距略窄，注意力集中，做事专注。';
+  }
+
+  // --- Nose / 鼻子 ---
+  const noseBridgeLen = dist(lm[27], lm[30]);
+  const noseWidth = dist(lm[31], lm[35]);
+  const noseRatio = noseBridgeLen / noseWidth;
+  const noseToFaceRatio = noseWidth / faceWidth;
+
+  if (noseRatio > 1.5) {
+    results.nose = { name: '鼻梁高挺', reading: '鼻梁高挺，在相学中称为"悬胆鼻"，主富贵。鼻为财帛宫，高挺者财运亨通，自信心强，有领导魅力。中年运势尤其旺盛，事业有成。', score: 90 };
+  } else if (noseRatio < 1.1) {
+    results.nose = { name: '鼻型圆润', reading: '鼻型圆润饱满，主财运稳定。虽不追求大富大贵，但衣食无忧，生活安逸。为人务实低调，理财能力强，善于守住财富。', score: 74 };
+  } else {
+    results.nose = { name: '鼻型端正', reading: '鼻型端正适中，主财运平稳。为人正直可靠，做事有条理。中年之后运势稳步上升，家庭和睦，生活幸福。', score: 80 };
+  }
+
+  // --- Mouth / 嘴巴 ---
+  const mouthWidth = dist(lm[48], lm[54]);
+  const mouthRatio = mouthWidth / faceWidth;
+  const lipThickness = (dist(lm[51], lm[57]) + dist(lm[62], lm[66])) / 2;
+
+  if (mouthRatio > 0.45) {
+    results.mouth = { name: '嘴巴较大', reading: '口大能容，主性格开朗大方，社交能力强。口为出纳宫，大者有口福，善于交际。此类人往往朋友遍天下，事业也得贵人相助。', score: 83 };
+  } else if (mouthRatio < 0.32) {
+    results.mouth = { name: '樱桃小口', reading: '口型小巧，主性格温婉内敛。说话谨慎，不爱出风头。虽然社交圈不大，但知心好友众多。做事细致认真，是值得信赖的人。', score: 76 };
+  } else {
+    results.mouth = { name: '口型适中', reading: '嘴巴大小适中，主说话有分寸，处世得体。善于沟通表达，但不夸夸其谈。人际关系良好，一生福泽绵长。', score: 81 };
+  }
+
+  if (lipThickness > dist(lm[51], lm[57]) * 0.8) {
+    results.mouth.reading += ' 嘴唇丰厚，重感情，待人真诚。';
+  }
+
+  // --- Chin / 下巴 ---
+  const chinWidth = dist(lm[5], lm[11]);
+  const chinToJawRatio = chinWidth / jawWidth;
+  const chinLength = dist(lm[8], lm[57]); // chin to lower lip
+
+  if (chinToJawRatio < 0.65 && chinLength > faceHeight * 0.2) {
+    results.chin = { name: '下巴尖翘', reading: '下巴尖翘，主晚年运势佳。此类人具有独特的审美眼光和创造力，在艺术领域常有建树。为人机智灵敏，善于把握机会。', score: 78 };
+  } else if (chinToJawRatio > 0.8) {
+    results.chin = { name: '地阁方圆', reading: '下巴圆润饱满，在相学中称为"地阁方圆"，是福相之标志。主晚年生活安逸富足，子孙满堂，福寿双全。为人稳重踏实，值得信赖。', score: 90 };
+  } else {
+    results.chin = { name: '下巴匀称', reading: '下巴形状匀称，主晚年运势平稳。为人处世中庸平和，不走极端。一生虽无大起大落，但平安喜乐，家庭幸福。', score: 80 };
+  }
+
+  // --- Cheekbones / 颧骨 ---
+  const cheekboneWidth = dist(lm[1], lm[15]);
+  const cheekProminence = faceWidth / faceHeight; // simplified
+
+  if (cheekboneWidth > faceWidth * 0.78) {
+    results.cheekbones = { name: '颧骨饱满', reading: '颧骨饱满有力，主中年运势旺盛。此类人有很强的执行力和领导才能，在事业上能独当一面。为人有担当，是可靠的合作伙伴。', score: 84 };
+  } else {
+    results.cheekbones = { name: '颧骨柔和', reading: '颧骨线条柔和，主性格温和，不善争斗。虽然事业上可能不够强势，但为人处世圆融，人缘极好，自有贵人相助。', score: 76 };
+  }
+
+  return results;
+}
+
+function calculateOverall(results) {
+  const scores = Object.values(results).map(r => r.score);
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const rounded = Math.round(avg);
+
+  let text;
+  if (rounded >= 88) {
+    text = '此乃大富大贵之相！天庭饱满，地阁方圆，五官端正，气宇轩昂。一生福运亨通，贵人相助，事业有成，家庭美满。正所谓"相由心生"，保持善良之心，福报自然来。';
+  } else if (rounded >= 80) {
+    text = '整体面相不俗，五官搭配和谐。虽非大富大贵之格，但一生平稳顺遂，少有大灾大难。只要踏实努力，中年之后运势稳步上升，终有所成。';
+  } else if (rounded >= 70) {
+    text = '面相中规中矩，有得有失。命运掌握在自己手中，后天的努力和修养比先天面相更为重要。保持积极向上的心态，运势自会随之改变。';
+  } else {
+    text = '面相虽有不足，但正所谓"相不独论"，单一特征不足以判定命运。后天的努力、学识和品德修养，才是决定人生的关键。行善积德，自然福泽绵长。';
+  }
+
+  return { score: rounded, text };
+}
+
+// === Tab Switching ===
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('tab-btn')) {
+    const tab = e.target.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+  }
+});
+
+// === Extended Analysis Functions ===
+
+function analyzePersonality(results) {
+  const traits = [];
+  const scores = {};
+
+  // Derive personality from facial features
+  const fs = results.faceShape.name;
+  if (fs.includes('圆')) { traits.push('开朗外向'); traits.push('亲和力强'); scores.extraversion = 85; }
+  else if (fs.includes('方')) { traits.push('意志坚定'); traits.push('正直可靠'); scores.extraversion = 65; }
+  else if (fs.includes('瓜子')) { traits.push('细腻敏感'); traits.push('审美出众'); scores.extraversion = 60; }
+  else { traits.push('温和圆融'); traits.push('处世得体'); scores.extraversion = 75; }
+
+  const eyeScore = results.eyes.score;
+  if (eyeScore >= 85) { traits.push('富有同情心'); traits.push('好奇心强'); scores.openness = 85; }
+  else if (eyeScore >= 75) { traits.push('观察入微'); scores.openness = 72; }
+  else { traits.push('沉稳内敛'); scores.openness = 60; }
+
+  const browName = results.eyebrows.name;
+  if (browName.includes('浓眉') || browName.includes('舒展')) { traits.push('重情重义'); traits.push('性格豪爽'); scores.agreeableness = 85; }
+  else if (browName.includes('较近')) { traits.push('专注认真'); traits.push('心思缜密'); scores.agreeableness = 62; }
+  else { traits.push('性格平和'); scores.agreeableness = 78; }
+
+  const noseScore = results.nose.score;
+  if (noseScore >= 88) { traits.push('自信果断'); traits.push('领导能力强'); scores.conscientiousness = 88; }
+  else if (noseScore >= 78) { traits.push('踏实可靠'); scores.conscientiousness = 76; }
+  else { traits.push('务实稳重'); scores.conscientiousness = 70; }
+
+  // MBTI-style mapping
+  let mbtiStyle = '';
+  if (scores.extraversion > 75 && scores.openness > 75) mbtiStyle = 'ENFP / ENFJ 型 — 热情洋溢的引导者';
+  else if (scores.extraversion > 75 && scores.conscientiousness > 80) mbtiStyle = 'ESTJ / ENTJ 型 — 天生的领导者';
+  else if (scores.extraversion < 65 && scores.openness > 75) mbtiStyle = 'INFP / INFJ 型 — 理想主义的思考者';
+  else if (scores.extraversion < 65 && scores.conscientiousness > 80) mbtiStyle = 'ISTJ / INTJ 型 — 沉稳的战略家';
+  else mbtiStyle = 'ISFJ / ESFJ 型 — 可靠的守护者';
+
+  const strengthTraits = traits.filter((_, i) => i % 2 === 0).slice(0, 3);
+  const watchTraits = ['偶尔过于固执', '感情用事时需理性', '学会放松减压', '多听他人意见'].sort(() => Math.random() - 0.5).slice(0, 2);
+
+  return { traits, scores, mbtiStyle, strengthTraits, watchTraits };
+}
+
+function analyzeCareer(results) {
+  const fs = results.faceShape.name;
+  const noseScore = results.nose.score;
+  const eyeScore = results.eyes.score;
+  const browName = results.eyebrows.name;
+  const chinName = results.chin.name;
+  const mouthName = results.mouth.name;
+  const foreheadScore = results.forehead.score;
+
+  let careers = [];
+  let reason = '';
+
+  if (fs.includes('方') || (results.cheekbones.name.includes('饱满'))) {
+    careers.push('企业管理', '军警政法', '工程技术', '项目管理');
+    reason = '方脸与饱满的颧骨赋予你强大的执行力和领导气场，在需要决断力和权威的领域如鱼得水。';
+  }
+  if (fs.includes('鹅蛋') || fs.includes('瓜子')) {
+    careers.push('艺术设计', '媒体传播', '教育咨询', '公关外交');
+    reason += ' 和谐的脸型配合出众的审美，在创意和人际交往领域独具优势。';
+  }
+  if (results.forehead.score >= 88) {
+    careers.push('学术研究', '战略规划', '金融分析');
+    if (!reason) reason = '天庭饱满代表聪慧过人，学习能力和远见卓识让你在高智力领域脱颖而出。';
+  }
+  if (eyeScore >= 85 && !careers.includes('艺术设计')) {
+    careers.push('文学创作', '心理咨询', '用户研究');
+  }
+  if (noseScore >= 88) {
+    careers.push('创业经商', '投资理财', '高管CEO');
+    if (!reason) reason = '鼻梁高挺，财帛宫旺，自信心和决断力超群，天生适合独当一面。';
+  }
+  if (browName.includes('浓眉')) {
+    careers.push('市场营销', '商务拓展', '团队管理');
+  }
+  if (browName.includes('较近')) {
+    careers.push('数据分析', '科研开发', '编程技术');
+  }
+  if (chinName.includes('方圆')) {
+    careers.push('行政管理', '土地房产', '资深顾问');
+  }
+  if (mouthName.includes('较大')) {
+    careers.push('演讲培训', '销售客服', '演艺主持');
+  }
+
+  // Deduplicate and limit
+  careers = [...new Set(careers)].slice(0, 6);
+  const top3 = careers.slice(0, 3);
+  const alsoFit = careers.slice(3);
+
+  return { top3, alsoFit, reason: reason || '五官搭配均衡，适合多种职业方向，关键在于找到自己真正热爱的领域。' };
+}
+
+function analyzeWealth(results) {
+  const noseScore = results.nose.score;
+  const foreheadScore = results.forehead.score;
+  const chinScore = results.chin.score;
+  const mouthName = results.mouth.name;
+
+  let level, reading, tips = [];
+
+  const wealthScore = Math.round((noseScore * 0.4 + foreheadScore * 0.3 + chinScore * 0.2 + (mouthName.includes('较大') ? 82 : 75) * 0.1));
+
+  if (wealthScore >= 88) {
+    level = '财运亨通';
+    reading = '鼻为财帛宫高挺饱满，天庭开阔，地阁方圆——三才兼备，是难得的好财格。一生财运旺盛，正财偏财皆有收获，中年之后财富积累尤为迅速。';
+    tips = ['适合长期投资和不动产配置', '注意42-45岁间的大运转折点', '慷慨助人可积累更多福报'];
+  } else if (wealthScore >= 78) {
+    level = '财运稳健';
+    reading = '财帛宫端正，虽非大富大贵之格，但财运稳定，正财收入可靠。理财能力强，善于积累，一生衣食无忧。不宜投机，稳扎稳打才是正道。';
+    tips = ['稳健型投资更适合你', '35岁后财运会有一波上升', '守住财富比追逐财富更重要'];
+  } else {
+    level = '后运渐佳';
+    reading = '早年财运平平，但中晚年后运势逐步上升。不必急于求成，踏实积累经验和人脉，45岁后自有机会。记住：开源不如节流，积少成多。';
+    tips = ['节制消费，养成储蓄习惯', '提升专业技能是增收关键', '2027年前后可能有财运转机'];
+  }
+
+  return { level, reading, tips, score: wealthScore };
+}
+
+function analyzeLove(results) {
+  const eyeScore = results.eyes.score;
+  const mouthName = results.mouth.name;
+  const browName = results.eyebrows.name;
+  const fs = results.faceShape.name;
+
+  let style, reading, advice;
+
+  if (eyeScore >= 85 && (fs.includes('鹅蛋') || fs.includes('瓜子'))) {
+    style = '桃花旺盛型';
+    reading = '眉眼含情，面容秀美，天生具有吸引异性的魅力。感情生活中追求浪漫与精神共鸣，但也容易因选择太多而犹豫不决。';
+    advice = '建议：不要被表象迷惑，选择那个真正懂你内心的人。25-32岁是姻缘黄金期。';
+  } else if (browName.includes('浓眉') || browName.includes('舒展')) {
+    style = '重情重义型';
+    reading = '眉毛浓密舒展者，待人真诚，感情专一。一旦认定对方便全身心投入，是值得托付终身的人。感情之路虽有波折但终得圆满。';
+    advice = '建议：学会表达爱意，不要太"直男/直女"。28岁前后可能遇到正缘。';
+  } else if (browName.includes('较近')) {
+    style = '细腻慢热型';
+    reading = '情感细腻而敏感，不轻易敞开心扉。但一旦投入便十分专一。可能在感情中受过伤，需要更多时间来建立信任。';
+    advice = '建议：放下过去，勇敢接受新的可能。晚婚之相，30岁后更易遇到真爱。';
+  } else {
+    style = '平和稳定型';
+    reading = '感情观成熟理性，不追求轰轰烈烈的爱情，而向往细水长流的陪伴。婚姻生活稳定幸福，是理想的伴侣人选。';
+    advice = '建议：偶尔制造一些浪漫惊喜，为感情增添色彩。26-33岁是成家的好时机。';
+  }
+
+  if (mouthName.includes('较大') || results.mouth.reading.includes('丰厚')) {
+    reading += ' 唇厚者重情，在亲密关系中温柔体贴，善于用行动表达爱意。';
+  }
+
+  return { style, reading, advice };
+}
+
+function analyzeHealth(results) {
+  const issues = [];
+  const scores = {};
+
+  // Face balance indicates overall health
+  const faceScore = results.faceShape.score;
+  scores.overall = faceScore;
+
+  const eyeRatio = results.eyes.score;
+  if (eyeRatio < 72) {
+    issues.push({ area: '眼部/肝脏', note: '注意用眼卫生，避免熬夜。中医认为目为肝之窍，护眼即养肝。' });
+  }
+
+  const browName = results.eyebrows.name;
+  if (browName.includes('较近')) {
+    issues.push({ area: '情绪/压力', note: '容易思虑过度，需注意调节情绪。建议培养运动习惯，瑜伽冥想皆可。' });
+  }
+
+  const noseScore = results.nose.score;
+  if (noseScore > 85) {
+    issues.push({ area: '心脏/循环', note: '精力旺盛但需注意心血管健康。避免过度劳累，定期体检不可少。' });
+  }
+
+  const generalHealth = scores.overall > 82 ? '体质良好，精力充沛。先天根基扎实，只要保持良好的生活习惯，健康运整体不错。' :
+    '体质中等，需注意日常保养。合理饮食、规律作息、适度运动是健康的三大基石。';
+
+  return { issues, generalHealth };
+}
+
+function displayResults(results) {
+  const overall = calculateOverall(results);
+
+  // --- Tab: Features ---
+  let featHtml = '';
+  const order = ['faceShape', 'forehead', 'eyebrows', 'eyes', 'nose', 'mouth', 'chin', 'cheekbones'];
+  const icons = {
+    faceShape: '🏷️', forehead: '🌟', eyebrows: '✨', eyes: '👁️',
+    nose: '👃', mouth: '👄', chin: '💎', cheekbones: '🪨'
+  };
+  order.forEach(key => {
+    const r = results[key];
+    const cls = r.score >= 85 ? 'good' : r.score >= 70 ? 'neutral' : '';
+    featHtml += `
+      <div class="feature-item">
+        <div class="feature-name">${icons[key]} ${r.name} <span class="feature-score ${cls}">${'★'.repeat(Math.round(r.score/20))}</span></div>
+        <div class="feature-reading">${r.reading}</div>
+      </div>`;
+  });
+  document.getElementById('tab-features').innerHTML = featHtml;
+
+  // --- Tab: Personality ---
+  const personality = analyzePersonality(results);
+  document.getElementById('tab-personality').innerHTML = `
+    <div class="ext-card">
+      <h3>🧠 性格特质</h3>
+      <div class="tags">${personality.traits.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+    </div>
+    <div class="ext-card">
+      <h3>💪 性格优势</h3>
+      <div class="tags">${personality.strengthTraits.map(t => `<span class="tag good">${t}</span>`).join('')}</div>
+    </div>
+    <div class="ext-card">
+      <h3>⚠️ 需注意</h3>
+      <p>${personality.watchTraits.join('、')}</p>
+    </div>
+    <div class="ext-card">
+      <h3>🧭 人格类型参考</h3>
+      <p>${personality.mbtiStyle}</p>
+    </div>`;
+
+  // --- Tab: Career ---
+  const career = analyzeCareer(results);
+  document.getElementById('tab-career').innerHTML = `
+    <div class="ext-card">
+      <h3>💼 适合职业方向</h3>
+      <p>${career.reason}</p>
+      <div style="margin-top:10px;"><strong style="color:#d4af37;font-size:0.85em;">首推职业：</strong></div>
+      <div class="tags">${career.top3.map(c => `<span class="tag good">${c}</span>`).join('')}</div>
+      ${career.alsoFit.length ? `<div style="margin-top:8px;"><strong style="color:#a08040;font-size:0.85em;">也适合：</strong></div><div class="tags">${career.alsoFit.map(c => `<span class="tag">${c}</span>`).join('')}</div>` : ''}
+    </div>
+    <div class="ext-card">
+      <h3>📈 职场优势</h3>
+      <p>面相中的优势特征表明你在所属领域有成为核心骨干甚至领导者的潜力。关键在于选择与自身特质匹配的赛道。</p>
+    </div>`;
+
+  // --- Tab: Wealth ---
+  const wealth = analyzeWealth(results);
+  document.getElementById('tab-wealth').innerHTML = `
+    <div class="ext-card">
+      <h3>💰 财运评级：${wealth.level}</h3>
+      <div class="meter-bar"><div class="meter-fill" style="width:${wealth.score}%"></div></div>
+      <p style="margin-top:8px;">${wealth.reading}</p>
+    </div>
+    <div class="ext-card">
+      <h3>📋 理财建议</h3>
+      ${wealth.tips.map(t => `<p style="margin:4px 0;">• ${t}</p>`).join('')}
+    </div>`;
+
+  // --- Tab: Love ---
+  const love = analyzeLove(results);
+  document.getElementById('tab-love').innerHTML = `
+    <div class="ext-card">
+      <h3>💕 感情类型：${love.style}</h3>
+      <p>${love.reading}</p>
+    </div>
+    <div class="ext-card">
+      <h3>💌 姻缘建议</h3>
+      <p>${love.advice}</p>
+    </div>`;
+
+  // --- Tab: Health ---
+  const health = analyzeHealth(results);
+  document.getElementById('tab-health').innerHTML = `
+    <div class="ext-card">
+      <h3>🏥 整体健康</h3>
+      <p>${health.generalHealth}</p>
+    </div>
+    ${health.issues.length ? `
+    <div class="ext-card">
+      <h3>🔍 需要关注的方面</h3>
+      ${health.issues.map(i => `<p style="margin:6px 0;"><strong style="color:#d4af37;">${i.area}：</strong>${i.note}</p>`).join('')}
+    </div>` : ''}
+    <div class="ext-card">
+      <h3>🍀 养生提示</h3>
+      <p>相由心生，心态平和是最好的养生。保持乐观、适度运动、饮食有节、作息规律——看似简单的道理，坚持下来就是最好的保健品。</p>
+    </div>`;
+
+  // --- Tab: Summary ---
+  document.getElementById('tab-summary').innerHTML = `
+    <div class="overall-section" style="margin-top:0;padding-top:0;border-top:none;">
+      <div class="overall-label">综合面相评分</div>
+      <div class="overall-score">${overall.score} 分</div>
+      <div class="meter-bar" style="width:60%;margin:8px auto;"><div class="meter-fill" style="width:${overall.score}%"></div></div>
+      <div class="overall-text">${overall.text}</div>
+    </div>
+    <div class="ext-card" style="margin-top:16px;">
+      <h3>📋 各维度评分一览</h3>
+      <p style="margin:4px 0;">五官面相 · ${Math.round(order.reduce((s,k) => s + results[k].score, 0) / order.length)}分</p>
+      <div class="meter-bar"><div class="meter-fill" style="width:${Math.round(order.reduce((s,k) => s + results[k].score, 0) / order.length)}%"></div></div>
+      <p style="margin:4px 0;">性格魅力 · ${Math.round(Object.values(personality.scores).reduce((a,b)=>a+b,0)/Object.values(personality.scores).length)}分</p>
+      <div class="meter-bar"><div class="meter-fill" style="width:${Math.round(Object.values(personality.scores).reduce((a,b)=>a+b,0)/Object.values(personality.scores).length)}%"></div></div>
+      <p style="margin:4px 0;">财运指数 · ${wealth.score}分</p>
+      <div class="meter-bar"><div class="meter-fill" style="width:${wealth.score}%"></div></div>
+      <p style="margin:4px 0;">健康基础 · ${health.scores.overall}分</p>
+      <div class="meter-bar"><div class="meter-fill" style="width:${health.scores.overall}%"></div></div>
+    </div>`;
+
+  // Show results
+  resultContent.style.display = 'block';
+  resultPlaceholder.style.display = 'none';
+
+  // Reset to first tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="tab-features"]').classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-features').classList.add('active');
+
+  // Scroll result to top
+  document.querySelector('.result-section').scrollTop = 0;
+}
+
+// === Analyze button ===
+analyzeBtn.addEventListener('click', async () => {
+  if (!faceData && !uploadedImage) {
+    alert('请先确保面部在摄像头画面中，或上传照片');
+    return;
+  }
+  loading.classList.add('active');
+
+  let data;
+  if (useImageMode && uploadedImage) {
+    const result = await faceapi.detectSingleFace(uploadedImage, new faceapi.TinyFaceDetectorOptions({
+      inputSize: 320, scoreThreshold: 0.5
+    })).withFaceLandmarks();
+
+    if (!result) {
+      alert('未能从上传的图片中检测到面部，请换一张正面清晰照片');
+      loading.classList.remove('active');
+      return;
+    }
+    data = result;
+    // Draw on overlay canvas
+    const scaleX = canvas.width / uploadedImage.width;
+    const scaleY = canvas.height / uploadedImage.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height);
+    // Adjust landmarks for canvas scale
+    const scaledLandmarks = {
+      positions: data.landmarks.positions.map(p => ({
+        x: p.x * scaleX, y: p.y * scaleY
+      }))
+    };
+    data = { ...data, landmarks: scaledLandmarks };
+    drawLandmarks(data);
+  } else {
+    data = faceData;
+  }
+
+  const results = analyzeFace(data.landmarks);
+  displayResults(results);
+  loading.classList.remove('active');
+});
+
+// === Camera toggle ===
+cameraBtn.addEventListener('click', () => {
+  useImageMode = false;
+  uploadedImage = null;
+  startCamera();
+});
+
+// === Image upload ===
+imageUpload.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  loading.classList.add('active');
+  useImageMode = true;
+  if (currentStream) {
+    currentStream.getTracks().forEach(t => t.stop());
+    currentStream = null;
+  }
+  video.srcObject = null;
+  if (detectionLoop) cancelAnimationFrame(detectionLoop);
+
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await new Promise((resolve) => { img.onload = resolve; });
+  uploadedImage = img;
+
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0);
+
+  const result = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({
+    inputSize: 320, scoreThreshold: 0.5
+  })).withFaceLandmarks();
+
+  if (result) {
+    faceData = result;
+    statusBadge.textContent = '已检测到面部';
+    statusBadge.className = 'status-badge detected';
+    drawLandmarks(result);
+  } else {
+    faceData = null;
+    statusBadge.textContent = '未检测到面部';
+    statusBadge.className = 'status-badge waiting';
+    alert('未能从上传的图片中检测到面部，请上传正面清晰照片');
+  }
+
+  analyzeBtn.disabled = false;
+  loading.classList.remove('active');
+});
+
+// === Init ===
+loadModels().catch(() => {
+  // Models failed but user can still try image upload with retry
+  analyzeBtn.disabled = true;
+});
+</script>
+</body>
+</html>
