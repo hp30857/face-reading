@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全流程诊断</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+body { font-family: sans-serif; padding: 16px; background: #111; color: #eee; }
+.pass { color: #5f5; } .fail { color: #f55; } .warn { color: #ff5; }
+.step { background: #1a1a1a; padding: 10px; margin: 8px 0; border-radius: 6px; border-left: 3px solid #444; }
+.step h3 { margin: 0 0 4px; font-size: 0.95em; }
+.step p { margin: 2px 0; font-size: 0.85em; color: #aaa; }
+input[type="file"] { margin: 10px 0; padding: 8px; }
+img { max-width: 300px; max-height: 300px; margin: 8px 0; border-radius: 6px; }
+button { padding: 10px 20px; background: #d4af37; border: none; color: #111; border-radius: 6px; cursor: pointer; font-size: 1em; }
+</style>
+</head>
+<body>
+<h2>诊断：逐步测试</h2>
+<div id="steps"></div>
+
+<script>
+const steps = document.getElementById('steps');
+function addStep(title, msg, cls) {
+  steps.innerHTML += '<div class="step"><h3 class="'+cls+'">' + title + '</h3><p>' + msg + '</p></div>';
+}
+
+(async () => {
+  const MODEL_URL = 'https://hp30857.github.io/face-reading/models';
+
+  // Step 1: face-api.js loaded?
+  addStep('步骤1', '检查 face-api.js 库是否加载...', 'warn');
+  if (typeof faceapi === 'undefined') {
+    addStep('步骤1: 失败', 'faceapi 未定义，库加载失败', 'fail');
+    return;
+  }
+  addStep('步骤1: 通过', 'faceapi 已加载', 'pass');
+
+  // Step 2: Load models
+  addStep('步骤2', '加载 tinyFaceDetector 模型...', 'warn');
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    addStep('步骤2a: 通过', 'tinyFaceDetector 加载成功', 'pass');
+  } catch(e) {
+    addStep('步骤2a: 失败', 'Error: ' + e.message, 'fail');
+    return;
+  }
+
+  addStep('步骤2b', '加载 faceLandmark68 模型...', 'warn');
+  try {
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    addStep('步骤2b: 通过', 'faceLandmark68Net 加载成功', 'pass');
+  } catch(e) {
+    addStep('步骤2b: 失败', 'Error: ' + e.message, 'fail');
+    return;
+  }
+
+  // Step 3: Check WebGL / backend
+  addStep('步骤3', '检查 TensorFlow 后端...', 'warn');
+  try {
+    const backend = faceapi.tf.getBackend();
+    addStep('步骤3: 通过', '后端: ' + (backend || 'unknown'), backend === 'webgl' ? 'pass' : 'warn');
+  } catch(e) {
+    addStep('步骤3: 注意', '无法检测后端: ' + e.message, 'warn');
+  }
+
+  // Step 4: Test detection on a built-in sample (generate a face-like image)
+  addStep('步骤4', '生成测试图片并检测...', 'warn');
+  try {
+    const c = document.createElement('canvas');
+    c.width = 300; c.height = 400;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#f5d0b0';
+    cx.fillRect(0, 0, 300, 400);
+    // Draw face oval
+    cx.fillStyle = '#f0c8a0';
+    cx.beginPath();
+    cx.ellipse(150, 180, 80, 110, 0, 0, Math.PI * 2);
+    cx.fill();
+    // Eyes
+    cx.fillStyle = '#fff';
+    cx.beginPath(); cx.ellipse(115, 155, 18, 10, 0, 0, Math.PI*2); cx.fill();
+    cx.beginPath(); cx.ellipse(185, 155, 18, 10, 0, 0, Math.PI*2); cx.fill();
+    cx.fillStyle = '#000';
+    cx.beginPath(); cx.arc(115, 155, 6, 0, Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(185, 155, 6, 0, Math.PI*2); cx.fill();
+    // Nose
+    cx.beginPath(); cx.moveTo(150, 170); cx.lineTo(145, 195); cx.lineTo(155, 195); cx.fill();
+    // Mouth
+    cx.beginPath(); cx.ellipse(150, 220, 22, 8, 0, Math.PI, 0); cx.stroke();
+    // Eyebrows
+    cx.strokeStyle = '#000'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(90, 135); cx.quadraticCurveTo(115, 125, 140, 135); cx.stroke();
+    cx.beginPath(); cx.moveTo(160, 135); cx.quadraticCurveTo(185, 125, 210, 135); cx.stroke();
+
+    const img = new Image();
+    img.src = c.toDataURL();
+    await new Promise(r => { img.onload = r; });
+    document.body.appendChild(img);
+
+    const t0 = performance.now();
+    const result = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({
+      inputSize: 320, scoreThreshold: 0.5
+    })).withFaceLandmarks();
+    const elapsed = (performance.now() - t0).toFixed(0);
+
+    if (result) {
+      addStep('步骤4: 通过', '检测到面部！耗时: ' + elapsed + 'ms, 特征点: ' + result.landmarks.positions.length + '个', 'pass');
+
+      // Step 5: Test analysis on detected landmarks
+      addStep('步骤5', '运行分析...', 'warn');
+      try {
+        const lm = result.landmarks.positions;
+        // Quick analysis test
+        function dist(p1, p2) { return Math.sqrt((p1.x-p2.x)**2 + (p1.y-p2.y)**2); }
+        const faceW = dist(lm[2], lm[14]);
+        const faceH = dist(lm[8], lm[27]);
+        const eyeW = dist(lm[36], lm[39]);
+        const eyeH = (dist(lm[37], lm[41]) + dist(lm[38], lm[40])) / 2;
+        const mouthW = dist(lm[48], lm[54]);
+        const noseLen = dist(lm[27], lm[30]);
+        const noseW = dist(lm[31], lm[35]);
+
+        addStep('步骤5: 通过',
+          '分析成功！<br>面宽=' + faceW.toFixed(0) + ' 面高=' + faceH.toFixed(0) +
+          '<br>眼宽=' + eyeW.toFixed(0) + ' 眼高=' + eyeH.toFixed(0) +
+          '<br>嘴宽=' + mouthW.toFixed(0) + ' 鼻长=' + noseLen.toFixed(0) +
+          '<br>宽高比=' + (faceW/faceH).toFixed(2) + ' 眼宽高比=' + (eyeH/eyeW).toFixed(2), 'pass');
+      } catch(e) {
+        addStep('步骤5: 失败', '分析出错: ' + e.message, 'fail');
+      }
+    } else {
+      addStep('步骤4: 无检测', '测试图片未检测到面部（可能正常，图案偏简单）', 'warn');
+
+      // Try with a real upload
+      addStep('步骤4b', '请上传一张真人照片继续测试:', 'warn');
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*';
+      document.body.appendChild(inp);
+      document.body.appendChild(document.createElement('br'));
+      const btn = document.createElement('button');
+      btn.textContent = '开始检测';
+      document.body.appendChild(btn);
+
+      btn.onclick = async () => {
+        if (!inp.files[0]) return;
+        addStep('步骤4b', '检测上传的图片...', 'warn');
+        const img = new Image();
+        img.src = URL.createObjectURL(inp.files[0]);
+        await new Promise(r => { img.onload = r; });
+        const canvas = document.createElement('canvas');
+        // Resize large images to 800px max
+        const maxDim = 800;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          const scale = maxDim / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+          addStep('步骤4b', '图片已缩放: ' + img.width + 'x' + img.height + ' → ' + w + 'x' + h, 'warn');
+        }
+        canvas.width = w; canvas.height = h;
+        const cx = canvas.getContext('2d');
+        cx.drawImage(img, 0, 0, w, h);
+
+        const t0 = performance.now();
+        const result = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({
+          inputSize: 320, scoreThreshold: 0.5
+        })).withFaceLandmarks();
+        const elapsed = (performance.now() - t0).toFixed(0);
+
+        if (result) {
+          addStep('步骤4b: 通过', '检测成功！耗时: ' + elapsed + 'ms, ' + result.landmarks.positions.length + '个特征点', 'pass');
+        } else {
+          addStep('步骤4b: 未检测到', '耗时: ' + elapsed + 'ms, 请确认照片是正面免冠照', 'fail');
+        }
+      };
+    }
+  } catch(e) {
+    addStep('步骤4: 失败', 'Error: ' + e.message, 'fail');
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
