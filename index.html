@@ -492,9 +492,15 @@ async function loadModels() {
     startCamera();
   } catch (e) {
     console.error('Model load error:', e);
-    setStatus('模型加载失败，刷新重试', 'error');
-    // Allow image upload even if camera fails
+    setStatus('模型加载失败', 'error');
     analyzeBtn.disabled = true;
+    // Show visible error overlay
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);z-index:3;text-align:center;padding:20px;flex-direction:column;';
+    errDiv.innerHTML = '<p style="color:#e05a5a;font-size:1em;margin-bottom:8px;">模型下载失败</p>' +
+      '<p style="color:#a08040;font-size:0.8em;">请刷新页面重试</p>' +
+      '<p style="color:#6a5530;font-size:0.7em;margin-top:4px;">如果多次失败，可能是网络问题</p>';
+    document.querySelector('.video-wrapper').appendChild(errDiv);
   }
 }
 
@@ -1144,7 +1150,7 @@ analyzeBtn.addEventListener('click', async () => {
     displayResults(results);
   } catch (err) {
     console.error('Analysis error:', err);
-    alert('分析出错，请刷新页面后重试');
+    alert('分析出错: ' + (err.message || err) + '\n\n请截图此信息并刷新重试');
   }
   loading.classList.remove('active');
 });
@@ -1163,6 +1169,7 @@ imageUpload.addEventListener('change', async (e) => {
 
   loading.classList.add('active');
   useImageMode = true;
+  faceData = null;
   if (currentStream) {
     currentStream.getTracks().forEach(t => t.stop());
     currentStream = null;
@@ -1170,33 +1177,44 @@ imageUpload.addEventListener('change', async (e) => {
   video.srcObject = null;
   if (detectionLoop) cancelAnimationFrame(detectionLoop);
 
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  await new Promise((resolve) => { img.onload = resolve; });
-  uploadedImage = img;
+  try {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('图片加载失败'));
+    });
+    uploadedImage = img;
 
-  canvas.width = img.width;
-  canvas.height = img.height;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0);
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
 
-  const result = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({
-    inputSize: 320, scoreThreshold: 0.5
-  })).withFaceLandmarks();
+    const result = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({
+      inputSize: 320, scoreThreshold: 0.5
+    })).withFaceLandmarks();
 
-  if (result) {
-    faceData = result;
-    statusBadge.textContent = '已检测到面部';
-    statusBadge.className = 'status-badge detected';
-    drawLandmarks(result);
-  } else {
-    faceData = null;
-    statusBadge.textContent = '未检测到面部';
-    statusBadge.className = 'status-badge waiting';
-    alert('未能从上传的图片中检测到面部，请上传正面清晰照片');
+    if (result) {
+      faceData = result;
+      statusBadge.textContent = '已检测到面部';
+      statusBadge.className = 'status-badge detected';
+      drawLandmarks(result);
+      analyzeBtn.disabled = false;
+    } else {
+      faceData = null;
+      statusBadge.textContent = '未检测到面部';
+      statusBadge.className = 'status-badge waiting';
+      analyzeBtn.disabled = true;
+      alert('未能从上传的图片中检测到面部，请上传正面清晰照片');
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    statusBadge.textContent = '检测失败';
+    statusBadge.className = 'status-badge error';
+    analyzeBtn.disabled = true;
+    alert('图片处理出错: ' + (err.message || '模型可能未加载完成，请刷新页面后重试'));
   }
-
-  analyzeBtn.disabled = false;
   loading.classList.remove('active');
 });
 
