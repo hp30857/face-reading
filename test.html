@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型加载测试</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+body { font-family: sans-serif; padding: 20px; background: #111; color: #fff; }
+.pass { color: #5f5; } .fail { color: #f55; } .info { color: #ff5; }
+pre { background: #222; padding: 10px; border-radius: 6px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>模型加载测试</h1>
+<div id="log"></div>
+
+<script>
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+  logEl.innerHTML += '<p class="' + (cls||'') + '">' + msg + '</p>';
+}
+
+(async () => {
+  log('1. face-api.js 库加载: ' + (typeof faceapi !== 'undefined' ? 'OK' : 'FAIL'), typeof faceapi !== 'undefined' ? 'pass' : 'fail');
+  if (typeof faceapi === 'undefined') { log('库加载失败，无法继续', 'fail'); return; }
+
+  const URLS = [
+    './models',
+    'models',
+    'https://hp30857.github.io/face-reading/models'
+  ];
+
+  for (const url of URLS) {
+    log('<br>尝试路径: <code>' + url + '</code>', 'info');
+    try {
+      // Try fetching manifest directly
+      const manifestUrl = url.replace(/\/?$/, '') + '/tiny_face_detector_model-weights_manifest.json';
+      log('  Fetch manifest: ' + manifestUrl);
+      const resp = await fetch(manifestUrl);
+      log('  HTTP status: ' + resp.status, resp.ok ? 'pass' : 'fail');
+      if (resp.ok) {
+        const json = await resp.json();
+        log('  Manifest JSON: OK (' + json.length + ' entries, paths: ' + (json[0]?.paths?.join(',') || 'none') + ')', 'pass');
+      }
+
+      // Try loading via face-api
+      log('  Calling faceapi.nets.tinyFaceDetector.loadFromUri("' + url + '")...');
+      await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+      log('  tinyFaceDetector: OK!', 'pass');
+
+      await faceapi.nets.faceLandmark68Net.loadFromUri(url);
+      log('  faceLandmark68Net: OK!', 'pass');
+      log('  >> 此路径可用！使用: ' + url, 'pass');
+      break;
+    } catch(e) {
+      log('  Error: ' + e.message, 'fail');
+    }
+  }
+
+  log('<br>测试完成。如果上面有绿色 OK，说明加载成功。', 'info');
+})();
+</script>
+</body>
+</html>
